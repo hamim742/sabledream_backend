@@ -110,6 +110,8 @@ export const startNotificationScheduler = () => {
         if (reminder.type === "journal") {
           // Journal notifications disabled
         } else if (reminder.type === "mood") {
+          // Disabled per client instruction: "❌NO MOOD NOTIFICATION"
+          /*
           if (reminder.dailyEnabled) {
             await sendPushNotification(
               fcmToken,
@@ -143,6 +145,7 @@ export const startNotificationScheduler = () => {
               }
             );
           }
+          */
         } else if (reminder.type === "affirmation") {
           // Disabled per client instruction: "❌NO REFLECTION NOTIFICATIONS"
         }

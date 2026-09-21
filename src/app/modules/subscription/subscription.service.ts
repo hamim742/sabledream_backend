@@ -3,6 +3,7 @@ import config from "../../config";
 import AppError from "../../error/AppError";
 import httpStatus from "http-status";
 import { subscriptionConfirmationTemplate } from "../../utils/emailTemplates/subscriptionConfirmation";
+import { subscribedWelcomeTemplate } from "../../utils/emailTemplates/subscribedWelcome";
 import { subscriptionDetailsTemplate } from "../../utils/emailTemplates/subscriptionDetails";
 import { subscriptionCanceledTemplate } from "../../utils/emailTemplates/subscriptionCanceled";
 import { subscriptionEndedTemplate } from "../../utils/emailTemplates/subscriptionEnded";
@@ -463,6 +464,15 @@ export const SubscriptionService = {
         });
       } catch (err) {
         console.error("[RevenueCat Webhook] Failed to send subscription confirmation email:", err);
+      }
+
+      try {
+        await subscribedWelcomeTemplate({
+          userName: user.name,
+          email: user.email,
+        });
+      } catch (err) {
+        console.error("[RevenueCat Webhook] Failed to send subscribed welcome email:", err);
       }
 
       try {

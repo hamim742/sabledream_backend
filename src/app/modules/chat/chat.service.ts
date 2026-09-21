@@ -490,11 +490,17 @@ export const ChatService = {
       throw new AppError(httpStatus.BAD_REQUEST, "Resulting monthly token limit cannot be negative");
     }
 
-    // Update user limit
+    // Update user limit and reset warning flags if increasing tokens
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
       data: {
         monthlyTokenLimit: updatedLimit,
+        ...(type === "increase"
+          ? {
+              hasSent90Warning: false,
+              hasSent100Warning: false,
+            }
+          : {}),
       },
     });
 
@@ -606,8 +612,25 @@ export const ChatService = {
       await prisma.user.updateMany({
         data: {
           monthlyTokenLimit: { increment: amount },
+          hasSent90Warning: false,
+          hasSent100Warning: false,
         },
       });
+
+      // Notify all users in background
+      prisma.user
+        .findMany({
+          where: { role: "user" },
+          select: { id: true },
+        })
+        .then(async (users) => {
+          for (const u of users) {
+            await notifyCapacityIncreased(u.id);
+          }
+        })
+        .catch((err) => {
+          console.error("[CHAT] Failed to notify users on bulk token increase:", err);
+        });
     } else if (type === "decrease") {
       await prisma.user.updateMany({
         data: {
