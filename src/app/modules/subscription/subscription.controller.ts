@@ -56,7 +56,13 @@ const syncSubscription = catchAsyncFn(async (req: Request, res: Response) => {
     throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized");
   }
 
-  const result = await SubscriptionService.syncRevenueCatSubscription(userId);
+  const incomingAppUserId =
+    req.body?.appUserId ||
+    req.body?.revenueCatUserId ||
+    req.body?.originalAppUserId ||
+    req.body?.rcUserId;
+
+  const result = await SubscriptionService.syncRevenueCatSubscription(userId, incomingAppUserId);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -77,20 +83,17 @@ const handleWebhook = catchAsyncFn(async (req: Request, res: Response) => {
     const cleanAuthHeader = authHeader ? authHeader.replace(/^Bearer\s+/i, "").trim() : "";
     const cleanWebhookAuth = webhookAuth.replace(/^Bearer\s+/i, "").trim();
     if (!cleanAuthHeader || cleanAuthHeader !== cleanWebhookAuth) {
+      console.warn(`[RevenueCat Webhook] Authorization header mismatch. Received: "${cleanAuthHeader.slice(0, 10)}...", Expected: "${cleanWebhookAuth.slice(0, 10)}..."`);
       throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized webhook source");
     }
   }
 
   const result = await SubscriptionService.handleRevenueCatWebhook(req.body);
 
-  if (result && (result as any).success === false) {
-    throw new AppError(httpStatus.BAD_REQUEST, (result as any).message || "Webhook processing failed");
-  }
-
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: result.message,
+    message: result?.message || "Webhook processed",
     data: result,
   });
 });

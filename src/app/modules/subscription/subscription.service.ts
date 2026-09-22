@@ -48,13 +48,18 @@ const formatDate = (date: Date): string => {
 
 const getPlanMeta = (productId: string | null) => {
   if (!productId) return null;
-  // Match exact mapping or try to guess based on ID containing monthly/annual
   if (PRODUCT_PLAN_MAP[productId]) {
     return PRODUCT_PLAN_MAP[productId];
   }
-  const isAnnual = productId.toLowerCase().includes("annual") || productId.toLowerCase().includes("year");
+  const lower = productId.toLowerCase();
+  for (const [key, value] of Object.entries(PRODUCT_PLAN_MAP)) {
+    if (lower.includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+  const isAnnual = lower.includes("annual") || lower.includes("year") || lower.includes("becoming");
   return {
-    name: isAnnual ? "Annual — Premium" : "Monthly — Premium",
+    name: isAnnual ? "Annual — Becoming" : "Monthly — Divine",
     type: isAnnual ? ("annual" as const) : ("monthly" as const),
     amount: isAnnual ? 45.0 : 5.0,
   };
@@ -187,9 +192,10 @@ export const SubscriptionService = {
   /**
    * Sync a subscriber's state manually using RevenueCat REST API
    */
-  async syncRevenueCatSubscription(userId: string) {
+  async syncRevenueCatSubscription(userId: string, incomingAppUserId?: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: { subscription: true },
     });
 
     if (!user) {
@@ -204,11 +210,20 @@ export const SubscriptionService = {
       );
     }
 
-    // Try candidates: userId (MongoDB id), permanentId, and email
-    const candidateIds = [user.id, user.permanentId, user.email].filter(Boolean) as string[];
-    let subscriber: any = null;
+    // Try candidates: incomingAppUserId from client, user.id (MongoDB id), permanentId, email, and existing revenueCatUserId
+    const candidateIds = [
+      incomingAppUserId,
+      user.id,
+      user.permanentId,
+      user.email,
+      user.subscription?.revenueCatUserId,
+    ].filter(Boolean) as string[];
 
-    for (const candidate of candidateIds) {
+    const uniqueCandidates = [...new Set(candidateIds)];
+    let subscriber: any = null;
+    let matchedRevenueCatId: string | null = null;
+
+    for (const candidate of uniqueCandidates) {
       try {
         const response = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(candidate)}`, {
           method: "GET",
@@ -224,6 +239,7 @@ export const SubscriptionService = {
             const hasEntitlements = Object.keys(data.subscriber.entitlements || {}).length > 0;
             const hasSubs = Object.keys(data.subscriber.subscriptions || {}).length > 0;
             subscriber = data.subscriber;
+            matchedRevenueCatId = candidate;
             if (hasEntitlements || hasSubs) {
               break; // Found active/relevant subscriber record
             }
@@ -235,10 +251,11 @@ export const SubscriptionService = {
     }
 
     if (!subscriber) {
-      throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, "Invalid response payload from RevenueCat");
+      console.warn(`[RevenueCat Sync] No subscriber record found in RevenueCat for user ${userId} across candidates:`, uniqueCandidates);
+      return this.getSubscriptionDetails(userId);
     }
 
-    // Determine the user's highest active entitlement
+    // 1. Check for active entitlement
     const entitlements = subscriber.entitlements || {};
     let activeEntitlementKey: string | null = null;
     let activeEntitlement: any = null;
@@ -261,10 +278,51 @@ export const SubscriptionService = {
       }
     }
 
+    let hasActiveSubscription = false;
+    let productId: string | null = null;
+    let expiresDate: Date | null = null;
+    let purchaseDate: Date | null = null;
+    let originalPurchaseDate: Date | null = null;
+    let isTrial = false;
+    let paymentStore = "App Store";
+    let storeTxId: string | null = null;
+
     if (activeEntitlementKey && activeEntitlement) {
-      const productId = activeEntitlement.product_identifier;
+      hasActiveSubscription = true;
+      productId = activeEntitlement.product_identifier;
+      expiresDate = activeEntitlement.expires_date ? new Date(activeEntitlement.expires_date) : null;
+      purchaseDate = activeEntitlement.purchase_date ? new Date(activeEntitlement.purchase_date) : null;
+      originalPurchaseDate = activeEntitlement.original_purchase_date
+        ? new Date(activeEntitlement.original_purchase_date)
+        : null;
+      isTrial = activeEntitlement.period_type === "trial";
+      const subObj = productId ? subscriber.subscriptions?.[productId] : null;
+      paymentStore = subObj?.store || "App Store";
+      storeTxId = subObj?.store_transaction_id || null;
+    } else {
+      // Fallback: Check subscriber.subscriptions directly (in case RevenueCat Entitlement was not linked in dashboard)
+      const subscriptions = subscriber.subscriptions || {};
+      const now = new Date();
+      for (const [subProdId, subObj] of Object.entries<any>(subscriptions)) {
+        if (!subObj) continue;
+        const subExpiresStr = subObj.expires_date;
+        const subRefundedStr = subObj.refunded_at;
+        if (!subRefundedStr && (!subExpiresStr || new Date(subExpiresStr) > now)) {
+          hasActiveSubscription = true;
+          productId = subProdId;
+          expiresDate = subExpiresStr ? new Date(subExpiresStr) : null;
+          purchaseDate = subObj.purchase_date ? new Date(subObj.purchase_date) : null;
+          originalPurchaseDate = subObj.original_purchase_date ? new Date(subObj.original_purchase_date) : null;
+          isTrial = subObj.period_type === "trial";
+          paymentStore = subObj.store || "App Store";
+          storeTxId = subObj.store_transaction_id || null;
+          break;
+        }
+      }
+    }
+
+    if (hasActiveSubscription && productId) {
       const planMeta = getPlanMeta(productId);
-      const isTrial = activeEntitlement.period_type === "trial";
       const status = isTrial ? "trial" : "active";
       const planType = planMeta ? planMeta.type : "free";
 
@@ -272,14 +330,14 @@ export const SubscriptionService = {
         status: status as any,
         planType: planType as any,
         productId,
-        expiresDate: activeEntitlement.expires_date ? new Date(activeEntitlement.expires_date) : null,
-        purchaseDate: activeEntitlement.purchase_date ? new Date(activeEntitlement.purchase_date) : null,
-        originalPurchaseDate: activeEntitlement.original_purchase_date
-          ? new Date(activeEntitlement.original_purchase_date)
-          : null,
-        paymentMethod: normalizePaymentMethod(subscriber.subscriptions?.[productId]?.store || "App Store"),
-        revenueCatUserId: userId,
+        expiresDate,
+        purchaseDate,
+        originalPurchaseDate,
+        paymentMethod: normalizePaymentMethod(paymentStore),
+        revenueCatUserId: matchedRevenueCatId || userId,
       };
+
+      const wasAlreadyActive = user.subscription && (user.subscription.status === "active" || user.subscription.status === "trial");
 
       // Upsert Subscription
       await prisma.subscription.upsert({
@@ -291,21 +349,18 @@ export const SubscriptionService = {
         },
       });
 
-      // Synchronize Transactions if they are available in the RevenueCat payload
-      const subscriptions = subscriber.subscriptions || {};
-      const subDetails = subscriptions[productId];
-      if (subDetails && subDetails.store_transaction_id) {
-        const txId = subDetails.store_transaction_id;
+      // Synchronize Transactions if store_transaction_id is available
+      if (storeTxId) {
         const txAmount = planMeta ? planMeta.amount : 0.0;
-        
         await prisma.transaction.upsert({
-          where: { transactionId: txId },
+          where: { transactionId: storeTxId },
           update: {
             status: "success",
+            amount: txAmount,
           },
           create: {
             userId,
-            transactionId: txId,
+            transactionId: storeTxId,
             amount: txAmount,
             status: "success",
             name: user.name,
@@ -314,8 +369,47 @@ export const SubscriptionService = {
           },
         });
       }
+
+      // If user transitioned to active/trial, trigger Brevo subscription confirmation emails
+      if (!wasAlreadyActive && (status === "active" || status === "trial")) {
+        console.log(`[RevenueCat Sync] Triggering Brevo subscription emails for newly active user ${user.email}`);
+        try {
+          await subscriptionConfirmationTemplate({
+            userName: user.name,
+            email: user.email,
+          });
+        } catch (err) {
+          console.error("[RevenueCat Sync] Failed to send subscription confirmation email:", err);
+        }
+
+        try {
+          await subscribedWelcomeTemplate({
+            userName: user.name,
+            email: user.email,
+          });
+        } catch (err) {
+          console.error("[RevenueCat Sync] Failed to send subscribed welcome email:", err);
+        }
+
+        try {
+          await subscriptionDetailsTemplate({
+            userName: user.name,
+            email: user.email,
+            planName: planMeta?.name || "Premium Plan",
+            price: `$${planMeta?.amount || 5.0}`,
+            renewsAt: expiresDate
+              ? expiresDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : "N/A",
+            joinedAt: user.createdAt
+              ? user.createdAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          });
+        } catch (err) {
+          console.error("[RevenueCat Sync] Failed to send subscription details email:", err);
+        }
+      }
     } else {
-      // Exited or has no active entitlements, mark as expired
+      // Exited or has no active subscriptions, mark as expired
       const expiredData = {
         status: "expired" as const,
         planType: "free" as const,
@@ -353,7 +447,7 @@ export const SubscriptionService = {
 
     if (!rawUserId) {
       console.warn("[RevenueCat Webhook] Warning: Missing app_user_id in event.");
-      return { success: false, message: "Missing app_user_id" };
+      return { success: true, message: "Missing app_user_id, skipped." };
     }
 
     // Safely look up user across ObjectId, permanentId, email, or aliases
@@ -370,8 +464,8 @@ export const SubscriptionService = {
     }
 
     if (!user) {
-      console.warn(`[RevenueCat Webhook] Warning: User matching '${rawUserId}' not found in database. Skipping update.`);
-      return { success: false, message: "User not found in local database" };
+      console.warn(`[RevenueCat Webhook] Warning: User matching '${rawUserId}' not found in database. Candidate IDs checked:`, candidateIds);
+      return { success: true, message: `User matching '${rawUserId}' not found in database, skipped.` };
     }
 
     const productId = event.product_id;
