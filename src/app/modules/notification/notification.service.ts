@@ -10,13 +10,46 @@ const getUserNotifications = async (
   const limit = parseInt(query.limit || "10", 10);
   const skip = (page - 1) * limit;
 
+  // Client rule: In-app notifications are ONLY:
+  // a) You have reached 90% capacity for sable chat
+  // b) Sable chat capacity has been increased
   const whereClause = {
     userId,
-    NOT: {
-      title: {
-        in: ["Journal Reminder", "Mood Reminder", "Affirmation Reminder"],
+    OR: [
+      {
+        title: {
+          in: [
+            "You have reached 90% capacity for sable chat",
+            "AI Chat Warning",
+            "Sable chat capacity has been increased",
+            "Your Sable capacity has been increased.",
+          ],
+        },
       },
-    },
+      {
+        AND: [
+          {
+            OR: [
+              { title: { contains: "capacity", mode: "insensitive" as const } },
+              { body: { contains: "capacity", mode: "insensitive" as const } },
+              { body: { contains: "90%", mode: "insensitive" as const } },
+            ],
+          },
+          {
+            NOT: {
+              OR: [
+                { title: { contains: "book", mode: "insensitive" as const } },
+                { title: { contains: "reading", mode: "insensitive" as const } },
+                { title: { contains: "journal", mode: "insensitive" as const } },
+                { title: { contains: "mood", mode: "insensitive" as const } },
+                { title: { contains: "affirmation", mode: "insensitive" as const } },
+                { title: { contains: "manifestation", mode: "insensitive" as const } },
+              ],
+            },
+          },
+        ],
+      },
+    ],
   };
 
   const [notifications, total] = await Promise.all([

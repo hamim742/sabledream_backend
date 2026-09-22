@@ -13,7 +13,7 @@ export const notifyCapacityIncreased = async (userId: string) => {
       select: { fcmToken: true },
     });
 
-    const title = "Your Sable capacity has been increased.";
+    const title = "Sable chat capacity has been increased";
     const body = "You can continue your reflection. ✨";
 
     if (user?.fcmToken) {
@@ -418,7 +418,7 @@ export const ChatService = {
       updateData.hasSent90Warning = true;
       shouldUpdate = true;
 
-      const title = "AI Chat Warning";
+      const title = "You have reached 90% capacity for sable chat";
       const body = "You have reached 90% of your access to Sable this month 💕";
       const payload = { screen: "chat", type: "usage_warning_90" };
 
