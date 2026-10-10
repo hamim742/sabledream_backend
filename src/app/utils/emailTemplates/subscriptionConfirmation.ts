@@ -4,12 +4,16 @@ import { sendBrevoEmail } from "../sendBrevoEmail";
 interface SubscriptionConfirmationData {
   userName: string;
   email: string;
+  planName?: string;
+  price?: string;
+  renewsAt?: string;
+  joinedAt?: string;
 }
 
 export const subscriptionConfirmationTemplate = async (
   data: SubscriptionConfirmationData,
 ) => {
-  const { userName, email } = data;
+  const { userName, email, planName, price, renewsAt, joinedAt } = data;
 
   if (process.env.BREVO_API_KEY || process.env.SMTP_PASS) {
     try {
@@ -18,8 +22,15 @@ export const subscriptionConfirmationTemplate = async (
         toName: userName,
         templateId: 5, // Brevo Template #5: Subscription Confirmation Email
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
+          name: userName,
+          PLAN_NAME: planName || "Monthly — Divine",
+          SUBSCRIPTION_PRICE: price || "$5.00",
+          RENEWAL_DATE: renewsAt || "N/A",
+          USER_EMAIL: email,
+          ACCOUNT_DATE: joinedAt || new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         },
       });
       return;

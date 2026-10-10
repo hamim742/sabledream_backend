@@ -377,6 +377,14 @@ export const SubscriptionService = {
           await subscriptionConfirmationTemplate({
             userName: user.name,
             email: user.email,
+            planName: planMeta?.name || "Monthly — Divine",
+            price: `$${planMeta?.amount || 5.0}`,
+            renewsAt: expiresDate
+              ? expiresDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : "N/A",
+            joinedAt: user.createdAt
+              ? user.createdAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
           });
         } catch (err) {
           console.error("[RevenueCat Sync] Failed to send subscription confirmation email:", err);
@@ -555,6 +563,10 @@ export const SubscriptionService = {
         await subscriptionConfirmationTemplate({
           userName: user.name,
           email: user.email,
+          planName: planMeta?.name || "Monthly — Divine",
+          price: event.price !== undefined ? `$${event.price}` : `$${planMeta?.amount || 5.0}`,
+          renewsAt: expiresDate ? expiresDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A",
+          joinedAt: user.createdAt ? user.createdAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         });
       } catch (err) {
         console.error("[RevenueCat Webhook] Failed to send subscription confirmation email:", err);
