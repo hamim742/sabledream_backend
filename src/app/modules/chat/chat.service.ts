@@ -96,7 +96,21 @@ const requestSableDreamChat = async <T>(path: string, init: RequestInit, timeout
       );
     }
 
-    return (await response.json()) as T;
+    // If status 204 No Content or body is empty, return null/empty object
+    if (response.status === 204) {
+      return null as T;
+    }
+
+    const text = await response.text();
+    if (!text || !text.trim()) {
+      return null as T;
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as unknown as T;
+    }
   } catch (err: any) {
     if (err instanceof AppError) {
       throw err;
@@ -205,7 +219,16 @@ export const ChatService = {
   },
 
   async deleteHistory(userId: string) {
-    return requestSableDreamChat<any>(`/api/v1/chat/history/${encodeURIComponent(userId)}`, { method: "DELETE" });
+    try {
+      const result = await requestSableDreamChat<any>(`/api/v1/chat/history/${encodeURIComponent(userId)}`, { method: "DELETE" });
+      return result || { success: true, message: "Chat history deleted successfully" };
+    } catch (err: any) {
+      // If 404 (no conversation found), it means history is already clean; treat as successful deletion
+      if (err instanceof AppError && err.statusCode === httpStatus.BAD_GATEWAY && err.message.includes("404")) {
+        return { success: true, message: "No conversation found or already deleted" };
+      }
+      throw err;
+    }
   },
 
   async getMemory(userId: string) {
