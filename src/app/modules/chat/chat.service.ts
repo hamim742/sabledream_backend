@@ -215,7 +215,20 @@ export const ChatService = {
   },
 
   async getHistory(userId: string) {
-    return requestSableDreamChat<any>(`/api/v1/chat/history/${encodeURIComponent(userId)}`, { method: "GET" });
+    try {
+      return await requestSableDreamChat<any>(`/api/v1/chat/history/${encodeURIComponent(userId)}`, { method: "GET" });
+    } catch (err: any) {
+      // If no conversation found (404), return empty conversation object instead of throwing error
+      if (err instanceof AppError && err.statusCode === httpStatus.BAD_GATEWAY && err.message.includes("404")) {
+        return {
+          user_id: userId,
+          messages: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+      throw err;
+    }
   },
 
   async deleteHistory(userId: string) {
@@ -232,7 +245,14 @@ export const ChatService = {
   },
 
   async getMemory(userId: string) {
-    return requestSableDreamChat<any>(`/api/v1/chat/memory/${encodeURIComponent(userId)}`, { method: "GET" });
+    try {
+      return await requestSableDreamChat<any>(`/api/v1/chat/memory/${encodeURIComponent(userId)}`, { method: "GET" });
+    } catch (err: any) {
+      if (err instanceof AppError && err.statusCode === httpStatus.BAD_GATEWAY && err.message.includes("404")) {
+        return { user_id: userId, memory: null };
+      }
+      throw err;
+    }
   },
 
   async getUsage(userId: string, monthYear?: string) {
