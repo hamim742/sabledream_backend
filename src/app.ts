@@ -12,7 +12,7 @@ const app: Application = express();
 // Enable Cross-Origin Resource Sharing
 app.use(
   cors({
-    origin: ["http://localhost:3053", "http://206.162.244.134:3053","http://2.25.95.233:3053"],
+    origin: ["http://localhost:3053", "http://206.162.244.134:3053","http://2.25.95.233:3053","https://admin.sabledreams.com"],
     credentials: true,
   }),
 );
