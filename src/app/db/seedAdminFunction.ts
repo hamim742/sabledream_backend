@@ -24,10 +24,12 @@ export const seedAdminFunction = async (): Promise<TSeedAdminResult> => {
 
   if (existing) {
     if (existing.role !== "admin") {
-      return {
-        status: "skipped",
-        reason: `User already exists but role is '${existing.role}' (not promoting automatically)`,
-      };
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { role: "admin", status: "active", isVerified: true },
+      });
+      console.log(`[SeedAdmin] User ${email} promoted to admin.`);
+      return { status: "created", adminId: existing.id, email: existing.email };
     }
 
     return { status: "exists", adminId: existing.id, email: existing.email };
