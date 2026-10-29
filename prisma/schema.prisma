@@ -238,21 +238,27 @@ model Notification {
 }
 
 model Subscription {
-  id                   String             @id @default(auto()) @map("_id") @db.ObjectId
-  userId               String             @unique @db.ObjectId
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status               SubscriptionStatus @default(expired)
-  planType             PlanType           @default(free)
-  productId            String?
-  expiresDate          DateTime?
-  purchaseDate         DateTime?
-  originalPurchaseDate DateTime?
-  nextBillingAmount    Float?
-  nextBillingDate      DateTime?
-  paymentMethod        String             @default("App Store")
-  revenueCatUserId     String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  id                      String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId                  String             @unique @db.ObjectId
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                  SubscriptionStatus @default(expired)
+  planType                PlanType           @default(free)
+  productId               String?
+  expiresDate             DateTime?
+  purchaseDate            DateTime?
+  originalPurchaseDate    DateTime?
+  nextBillingAmount       Float?
+  nextBillingDate         DateTime?
+  paymentMethod           String             @default("App Store")
+  revenueCatUserId        String?
+  autoRenewStatus         Boolean            @default(true)
+  unsubscribeDetectedAt   DateTime?
+  billingIssueDetectedAt  DateTime?
+  cancelEmailSentAt       DateTime?
+  expiredEmailSentAt      DateTime?
+  billingIssueEmailSentAt DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 }
 
 enum SubscriptionStatus {

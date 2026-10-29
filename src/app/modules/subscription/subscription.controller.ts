@@ -73,6 +73,26 @@ const syncSubscription = catchAsyncFn(async (req: Request, res: Response) => {
 });
 
 /**
+ * Cancel subscription auto-renew and trigger cancellation email
+ */
+const cancelSubscription = catchAsyncFn(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    throw new AppError(httpStatus.UNAUTHORIZED, "Unauthorized");
+  }
+
+  const result = await SubscriptionService.cancelSubscription(userId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Subscription cancellation recorded and confirmation email sent",
+    data: result,
+  });
+});
+
+/**
  * Webhook ingest for RevenueCat background sync events
  */
 const handleWebhook = catchAsyncFn(async (req: Request, res: Response) => {
@@ -102,5 +122,6 @@ export const SubscriptionController = {
   getSubscriptionDetails,
   getBillingHistory,
   syncSubscription,
+  cancelSubscription,
   handleWebhook,
 };

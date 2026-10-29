@@ -5,10 +5,23 @@ interface BillingIssueData {
   userName: string;
   email: string;
   planName?: string;
+  price?: string;
+  renewsAt?: string;
+  joinedAt?: string;
 }
 
 export const billingIssueTemplate = async (data: BillingIssueData) => {
-  const { userName, email, planName } = data;
+  const { userName, email, planName, price, renewsAt, joinedAt } = data;
+  const resolvedPlanName = planName || "Monthly — Divine";
+  const resolvedPrice = price || "$5.00";
+  const resolvedRenewsAt = renewsAt || "N/A";
+  const resolvedJoinedAt =
+    joinedAt ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
   if (process.env.BREVO_API_KEY || process.env.SMTP_PASS) {
     try {
@@ -17,9 +30,20 @@ export const billingIssueTemplate = async (data: BillingIssueData) => {
         toName: userName,
         templateId: 8, // Brevo Template #8: Billing Issue
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
-          planName: planName || "Sable Dreams Subscription",
+          name: userName,
+          PLAN_NAME: resolvedPlanName,
+          planName: resolvedPlanName,
+          SUBSCRIPTION_PRICE: resolvedPrice,
+          price: resolvedPrice,
+          RENEWAL_DATE: resolvedRenewsAt,
+          renewsAt: resolvedRenewsAt,
+          USER_EMAIL: email,
+          email,
+          ACCOUNT_DATE: resolvedJoinedAt,
+          joinedAt: resolvedJoinedAt,
         },
       });
       return;

@@ -18,9 +18,12 @@ export const subscribedWelcomeTemplate = async (
         toName: userName,
         templateId: 4, // Brevo Template #4: Subscribed Welcome Email
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
           name: userName,
+          USER_EMAIL: email,
+          email,
         },
       });
       return;

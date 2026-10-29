@@ -5,12 +5,31 @@ interface SubscriptionEndedData {
   userName: string;
   email: string;
   planName?: string;
+  price?: string;
+  endedAt?: string;
+  joinedAt?: string;
 }
 
 export const subscriptionEndedTemplate = async (
   data: SubscriptionEndedData,
 ) => {
-  const { userName, email, planName } = data;
+  const { userName, email, planName, price, endedAt, joinedAt } = data;
+  const resolvedPlanName = planName || "Monthly — Divine";
+  const resolvedPrice = price || "$5.00";
+  const resolvedEndedAt =
+    endedAt ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  const resolvedJoinedAt =
+    joinedAt ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
   if (process.env.BREVO_API_KEY || process.env.SMTP_PASS) {
     try {
@@ -19,9 +38,24 @@ export const subscriptionEndedTemplate = async (
         toName: userName,
         templateId: 10, // Brevo Template #10: Subscription ended
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
-          planName: planName || "Sable Dreams Subscription",
+          name: userName,
+          PLAN_NAME: resolvedPlanName,
+          planName: resolvedPlanName,
+          SUBSCRIPTION_PRICE: resolvedPrice,
+          price: resolvedPrice,
+          ENDED_AT: resolvedEndedAt,
+          EXPIRATION_DATE: resolvedEndedAt,
+          END_DATE: resolvedEndedAt,
+          EXPIRES_AT: resolvedEndedAt,
+          endedAt: resolvedEndedAt,
+          expiresAt: resolvedEndedAt,
+          USER_EMAIL: email,
+          email,
+          ACCOUNT_DATE: resolvedJoinedAt,
+          joinedAt: resolvedJoinedAt,
         },
       });
       return;
