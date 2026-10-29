@@ -22,11 +22,19 @@ export const subscriptionDetailsTemplate = async (
         toName: userName,
         templateId: 11, // Brevo Template #11: Subscription renewed
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
+          name: userName,
+          PLAN_NAME: planName,
           planName,
+          SUBSCRIPTION_PRICE: price,
           price,
+          RENEWAL_DATE: renewsAt,
           renewsAt,
+          USER_EMAIL: email,
+          email,
+          ACCOUNT_DATE: joinedAt,
           joinedAt,
         },
       });

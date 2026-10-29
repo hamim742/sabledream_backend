@@ -2,5 +2,5 @@ node_modules
 dist
 postman_collection.json
 # Keep environment variables out of version control
-.env
 src/app/config/*.json
+config.bat
