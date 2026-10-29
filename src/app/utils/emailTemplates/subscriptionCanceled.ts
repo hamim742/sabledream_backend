@@ -5,13 +5,33 @@ interface SubscriptionCanceledData {
   userName: string;
   email: string;
   planName?: string;
+  price?: string;
   expiresAt?: string;
+  canceledAt?: string;
+  joinedAt?: string;
 }
 
 export const subscriptionCanceledTemplate = async (
   data: SubscriptionCanceledData,
 ) => {
-  const { userName, email, planName, expiresAt } = data;
+  const { userName, email, planName, price, expiresAt, canceledAt, joinedAt } = data;
+  const resolvedPlanName = planName || "Monthly — Divine";
+  const resolvedPrice = price || "$5.00";
+  const resolvedExpiresAt = expiresAt || "End of billing period";
+  const resolvedCanceledAt =
+    canceledAt ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  const resolvedJoinedAt =
+    joinedAt ||
+    new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
   if (process.env.BREVO_API_KEY || process.env.SMTP_PASS) {
     try {
@@ -20,10 +40,28 @@ export const subscriptionCanceledTemplate = async (
         toName: userName,
         templateId: 9, // Brevo Template #9: Subscription canceled
         params: {
+          FNAME: userName,
           NAME: userName,
           userName,
-          planName: planName || "Sable Dreams Subscription",
-          expiresAt: expiresAt || "End of billing period",
+          name: userName,
+          PLAN_NAME: resolvedPlanName,
+          planName: resolvedPlanName,
+          SUBSCRIPTION_PRICE: resolvedPrice,
+          price: resolvedPrice,
+          EXPIRES_AT: resolvedExpiresAt,
+          EXPIRATION_DATE: resolvedExpiresAt,
+          END_DATE: resolvedExpiresAt,
+          ACCESS_UNTIL: resolvedExpiresAt,
+          RENEWAL_DATE: resolvedExpiresAt,
+          expiresAt: resolvedExpiresAt,
+          renewsAt: resolvedExpiresAt,
+          CANCELED_AT: resolvedCanceledAt,
+          CANCELLATION_DATE: resolvedCanceledAt,
+          canceledAt: resolvedCanceledAt,
+          USER_EMAIL: email,
+          email,
+          ACCOUNT_DATE: resolvedJoinedAt,
+          joinedAt: resolvedJoinedAt,
         },
       });
       return;

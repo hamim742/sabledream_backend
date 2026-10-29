@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { prisma } from "../lib/prisma";
 import { sendPushNotification } from "./sendNotification";
 import { ChatService } from "../modules/chat/chat.service";
+import { SubscriptionService } from "../modules/subscription/subscription.service";
 
 const defaultTimeZone = "America/New_York";
 
@@ -175,4 +176,19 @@ export const startNotificationScheduler = () => {
     }
   );
 
+  // Sync active/trial RevenueCat subscriptions every 5 minutes to catch cancellations, renewals, billing issues, and expirations
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await SubscriptionService.syncActiveSubscriptionsCron();
+    } catch (error) {
+      console.error("[SCHEDULER] Error running RevenueCat subscription sync cron:", error);
+    }
+  });
+
+  // Also run an initial sync check 10 seconds after server start
+  setTimeout(() => {
+    SubscriptionService.syncActiveSubscriptionsCron().catch((error) => {
+      console.error("[SCHEDULER] Error running initial RevenueCat subscription sync:", error);
+    });
+  }, 10000);
 };

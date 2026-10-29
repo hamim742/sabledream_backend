@@ -25,6 +25,19 @@ router.post(
   SubscriptionController.syncSubscription
 );
 
+// Cancel subscription and send cancellation email notification
+router.post(
+  "/cancel",
+  checkAuth("user", "admin"),
+  SubscriptionController.cancelSubscription
+);
+
+router.patch(
+  "/cancel",
+  checkAuth("user", "admin"),
+  SubscriptionController.cancelSubscription
+);
+
 // Webhook listener for background events from RevenueCat
 router.post(
   "/webhook",
